@@ -1,0 +1,39 @@
+from django.contrib import admin
+from django.urls import path, include
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from core.views import CustomTokenObtainPairView
+from apps.sales.views import sync_sales, SalesListView
+from apps.users.views import (
+    UserListView, UserCreateView, UserDetailView,
+    BranchCreateView, BranchListView, BranchDetailView,
+    UOMListView, CurrencyListView
+)
+from apps.gold_rates.views import RateDetailView
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    
+    # Auth
+    path('api/auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # Sales
+    path('api/sales/', SalesListView.as_view(), name='sales-list'),
+    path('api/sales/sync/', sync_sales, name='sync-sales'),
+    
+    # Settings (Rates)
+    path('api/rates/', RateDetailView.as_view(), name='rates'),
+
+    # Admin/Manager Management
+    path('api/users/', UserListView.as_view(), name='users-list'),
+    path('api/users/create/', UserCreateView.as_view(), name='user-create'),
+    path('api/users/<int:pk>/', UserDetailView.as_view(), name='user-detail'),
+    
+    path('api/branches/', BranchListView.as_view(), name='branch-list'),
+    path('api/branches/create/', BranchCreateView.as_view(), name='branch-create'),
+    path('api/branches/<int:pk>/', BranchDetailView.as_view(), name='branch-detail'),
+    
+    # Constants
+    path('api/uoms/', UOMListView.as_view(), name='uom-list'),
+    path('api/currencies/', CurrencyListView.as_view(), name='currency-list'),
+]
