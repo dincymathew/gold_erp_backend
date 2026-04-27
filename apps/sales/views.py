@@ -39,25 +39,28 @@ def sync_sales(request):
     for s in sales:
         try:
             if not Sale.objects.filter(id=s['id']).exists():
+                products = s.get('products', [])
+                p = products[0] if len(products) > 0 else {}
+
                 Sale.objects.create(
                     id=s['id'],
                     branch_id=branch_id,
                     staff=request.user,
                     
                     # RFQ
-                    vendor=s.get('vendor'),
-                    purchase_method=s.get('purchase_method'),
-                    market_price_currency=s.get('market_price_currency', 'USD'),
+                    vendor=s.get('client_name') or s.get('vendor'),
+                    purchase_method=s.get('purchase_method', ''),
+                    market_price_currency=s.get('market_currency', 'USD'),
                     market_price=s.get('market_price', 0),
-                    discount_addition=s.get('discount_addition', 0),
+                    discount_addition=s.get('discount_additions', 0),
                     net_price=s.get('net_price', 0),
-                    market_price_unit=s.get('market_price_unit', 'g'),
+                    market_price_unit=s.get('material_unit', 'g'),
                     
                     # Header / Constants
-                    order_deadline=s.get('order_deadline'),
+                    order_deadline=s.get('filing_date') or s.get('order_deadline'),
                     expected_arrival=s.get('expected_arrival'),
-                    transaction_currency=s.get('transaction_currency', 'USD'),
-                    currency_rate=s.get('currency_rate', 1.0),
+                    transaction_currency=s.get('change_currency', 'USD'),
+                    currency_rate=s.get('change_currency_rate', 1.0),
                     transaction_unit=s.get('transaction_unit', 't'),
                     conversion_market_unit=s.get('conversion_market_unit', 0.38),
                     x_factor=s.get('x_factor', 92.0),
@@ -66,18 +69,23 @@ def sync_sales(request):
                     balance=s.get('balance', 0),
 
                     # Product
-                    product_name=s.get('product_name', 'Gold Bar'),
-                    description=s.get('description', ''),
-                    gross_weight=s.get('gross_weight', 0),
-                    actual_process_weight=s.get('actual_process_weight', 0),
-                    second_process_weight=s.get('second_process_weight', 0),
-                    process_loss=s.get('process_loss', 0),
-                    density=s.get('density', 0),
-                    actual_product_quality=s.get('actual_product_quality', 0),
+                    product_name=p.get('productName', 'Gold Bar'),
+                    description=p.get('description', ''),
+                    gross_weight=p.get('grossWeight', 0) if p.get('grossWeight') not in ('', None) else 0,
+                    actual_process_weight=p.get('actualProcessWeight', 0) if p.get('actualProcessWeight') not in ('', None) else 0,
+                    second_process_weight=p.get('secondProcessWeight', 0) if p.get('secondProcessWeight') not in ('', None) else 0,
+                    process_loss=p.get('processLoss', 0),
+                    density=p.get('density', 0),
+                    actual_product_quality=p.get('finalPurity', 0),
                     
-                    unit_price=s.get('unit_price', 0),
+                    manual_first_process=p.get('manualFirstProcess', 0) if p.get('manualFirstProcess') not in ('', None) else 0,
+                    manual_purity=p.get('manualPurity', 0) if p.get('manualPurity') not in ('', None) else 0,
+                    qty_tolas=p.get('tolaQty', 0),
+                    tola_rate=s.get('tola_rate', 0),
+
+                    unit_price=p.get('unitPrice', 0),
                     subtotal=s.get('subtotal', 0),
-                    total_ugx=s.get('total_ugx', 0)
+                    total_ugx=s.get('total_target_currency', 0)
                 )
                 created_count += 1
         except Exception as e:

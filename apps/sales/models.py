@@ -34,7 +34,7 @@ class Sale(models.Model):
     actual_process_weight = models.DecimalField(max_digits=15, decimal_places=3, default=0.0)
     second_process_weight = models.DecimalField(max_digits=15, decimal_places=3, default=0.0)
     process_loss = models.DecimalField(max_digits=15, decimal_places=3, default=0.0)
-    density = models.DecimalField(max_digits=15, decimal_places=3, default=0.0)
+    density = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
     actual_product_quality = models.DecimalField(max_digits=10, decimal_places=4, default=0.0) # Purity
     
     manual_first_process = models.DecimalField(max_digits=15, decimal_places=3, default=0.0)
