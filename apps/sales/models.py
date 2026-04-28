@@ -1,7 +1,9 @@
 from django.db import models
 
 class Sale(models.Model):
-    id = models.CharField(max_length=100, primary_key=True)
+    id = models.BigAutoField(primary_key=True)
+    bill_number = models.CharField(max_length=100, null=True, blank=True)
+    frontend_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     branch = models.ForeignKey('branches.Branch', on_delete=models.CASCADE, related_name='sales', null=True)
     staff = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True)
     
@@ -12,7 +14,8 @@ class Sale(models.Model):
     market_price = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
     discount_addition = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
     net_price = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
-    market_price_unit = models.CharField(max_length=50, default='g')
+    market_price_unit = models.CharField(max_length=50, default='oz')
+    material_unit_input = models.CharField(max_length=50, default='Grams')
     
     # Header Constants / Metadata
     order_deadline = models.DateField(null=True, blank=True)
@@ -28,7 +31,7 @@ class Sale(models.Model):
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
 
     # Product Table fields (Moved into model directly for Phase 1 simplicity)
-    product_name = models.CharField(max_length=255, default="Gold Bar")
+    product_name = models.CharField(max_length=255, default="RM")
     description = models.TextField(blank=True, null=True)
     gross_weight = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
     actual_process_weight = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
