@@ -5,16 +5,20 @@ from .models import User, UserLog
 from apps.branches.models import Branch, UOM, Currency, Expense
 
 class BranchSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
     class Meta:
         model = Branch
-        fields = '__all__'
+        fields = ['id', 'name', 'location', 'x_factor', 'created_by', 'created_by_name', 'created_at']
+        read_only_fields = ['created_by']
 
 class ExpenseSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
     branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all(), required=False)
     class Meta:
         model = Expense
-        fields = '__all__'
+        fields = ['id', 'branch', 'branch_name', 'category', 'status', 'source_name', 'description', 'rate_per_gram', 'grams', 'total', 'date', 'created_by', 'created_by_name', 'created_at']
+        read_only_fields = ['status', 'created_by']
 
 class UOMSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,10 +33,14 @@ class CurrencySerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
     password = serializers.CharField(write_only=True, required=False)
+    branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all(), required=False, allow_null=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'branch', 'branch_name', 'last_login', 'is_active', 'password']
+        fields = ['id', 'username', 'email', 'role', 'branch', 'branch_name', 'last_login', 'is_active', 'password', 'created_by', 'created_by_name']
+        read_only_fields = ['created_by']
 
 class UserLogSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
@@ -52,7 +60,7 @@ class UserCreateView(generics.CreateAPIView):
             
         # Extract password before saving
         password = serializer.validated_data.pop('password', None)
-        new_user = serializer.save(branch=branch)
+        new_user = serializer.save(branch=branch, created_by=user)
         
         if password:
             new_user.set_password(password)
@@ -140,7 +148,7 @@ class BranchCreateView(generics.CreateAPIView):
     serializer_class = BranchSerializer
 
     def perform_create(self, serializer):
-        branch = serializer.save()
+        branch = serializer.save(created_by=self.request.user)
         UserLog.objects.create(
             user=self.request.user,
             role=self.request.user.role,
@@ -201,7 +209,10 @@ class ExpenseCreateView(generics.CreateAPIView):
         branch = serializer.validated_data.get('branch')
         if user.role == 'MANAGER':
             branch = user.branch
-        expense = serializer.save(branch=branch)
+        
+        # Admin creates approved expenses, Manager creates pending
+        status = 'APPROVED' if user.role == 'ADMIN' else 'PENDING'
+        expense = serializer.save(branch=branch, created_by=user, status=status)
         
         UserLog.objects.create(
             user=user,
@@ -220,3 +231,28 @@ class ExpenseListView(generics.ListAPIView):
         elif user.role == 'MANAGER':
             return Expense.objects.filter(branch=user.branch).order_by('-date')
         return Expense.objects.none()
+
+class ExpenseStatusUpdateView(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ExpenseSerializer
+    queryset = Expense.objects.all()
+
+    def patch(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+        expense = self.get_object()
+        new_status = request.data.get('status')
+        if new_status not in ['APPROVED', 'REJECTED']:
+            return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        expense.status = new_status
+        expense.save()
+
+        UserLog.objects.create(
+            user=request.user,
+            role=request.user.role,
+            action=f"EXPENSE_{new_status}",
+            details=f"Admin {request.user.username} {new_status.lower()} expense ID {expense.id} from {expense.source_name}"
+        )
+        return Response({'status': 'success', 'expense_status': expense.status})

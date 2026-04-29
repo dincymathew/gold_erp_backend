@@ -9,6 +9,7 @@ class User(AbstractUser):
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STAFF')
     branch = models.ForeignKey('branches.Branch', on_delete=models.SET_NULL, null=True, blank=True, related_name='users')
+    created_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_users')
 
     def __str__(self):
         return f"{self.username} - {self.role}"
