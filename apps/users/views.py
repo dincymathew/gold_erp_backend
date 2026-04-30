@@ -55,8 +55,19 @@ class UserCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         user = self.request.user
         branch = serializer.validated_data.get('branch')
+        requested_role = serializer.validated_data.get('role')
+
         if user.role == 'MANAGER':
             branch = user.branch
+            if requested_role in ['SUPER_ADMIN', 'ADMIN', 'MANAGER']:
+                raise serializers.ValidationError("Managers can only create staff.")
+        
+        if user.role == 'ADMIN':
+            if requested_role in ['SUPER_ADMIN', 'ADMIN']:
+                raise serializers.ValidationError("Admins cannot create other admins or super admins.")
+        
+        if user.role != 'SUPER_ADMIN' and requested_role == 'SUPER_ADMIN':
+            raise serializers.ValidationError("Only Super Admins can create other Super Admins.")
             
         # Extract password before saving
         password = serializer.validated_data.pop('password', None)
@@ -78,10 +89,10 @@ class UserListView(generics.ListAPIView):
     serializer_class = UserSerializer
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'ADMIN':
-            return User.objects.all()
+        if user.role in ['SUPER_ADMIN', 'ADMIN']:
+            return User.objects.all().order_by('-id')
         elif user.role == 'MANAGER':
-            return User.objects.filter(branch=user.branch)
+            return User.objects.filter(branch=user.branch).order_by('-id')
         return User.objects.none()
 
 class UserDetailView(generics.RetrieveUpdateAPIView):
